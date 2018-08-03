@@ -1,0 +1,112 @@
+package opcuaTest;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
+
+import org.eclipse.milo.examples.client.ClientExample;
+import org.eclipse.milo.examples.client.ClientExampleRunner;
+import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
+import org.eclipse.milo.opcua.sdk.client.api.subscriptions.UaMonitoredItem;
+import org.eclipse.milo.opcua.sdk.client.api.subscriptions.UaSubscription;
+import org.eclipse.milo.opcua.sdk.server.api.MonitoredItem;
+import org.eclipse.milo.opcua.stack.core.AttributeId;
+import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
+import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
+import org.eclipse.milo.opcua.stack.core.types.builtin.QualifiedName;
+import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.UInteger;
+import org.eclipse.milo.opcua.stack.core.types.enumerated.MonitoringMode;
+import org.eclipse.milo.opcua.stack.core.types.enumerated.TimestampsToReturn;
+import org.eclipse.milo.opcua.stack.core.types.structured.MonitoredItemCreateRequest;
+import org.eclipse.milo.opcua.stack.core.types.structured.MonitoringParameters;
+import org.eclipse.milo.opcua.stack.core.types.structured.ReadValueId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.uint;
+import static com.google.common.collect.Lists.newArrayList;
+
+public class SubscriptionTest implements ClientExample {
+
+	public static void main(String[] args) throws Exception {
+		SubscriptionTest client = new SubscriptionTest();
+		new ClientExampleRunner(client,false).run();
+	}
+	
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+	
+	private final AtomicLong clientHandles = new AtomicLong(1L);
+
+	@Override
+	public void run(OpcUaClient client, CompletableFuture<OpcUaClient> future) throws Exception {
+		// synchronous connect
+		client.connect().get();
+		
+		//Create subscription
+		UaSubscription subscription = client.getSubscriptionManager().createSubscription(1000.0).get();
+		
+		//Subscribe to a value
+		ReadValueId readValueId = new ReadValueId(
+				new NodeId(2, "TestFolder/TestSubfolder1/TestVariable_1_3"), 
+				AttributeId.Value.uid(), 
+				null, 
+				QualifiedName.NULL_VALUE
+		);
+		
+		// important: client handle must be unique per item
+        UInteger clientHandle = uint(clientHandles.getAndIncrement());
+        
+        //Set monitoring parameters
+        MonitoringParameters parameters = new MonitoringParameters(
+                clientHandle,
+                1000.0,     // sampling interval
+                null,       // filter, null means use default
+                uint(10),   // queue size
+                true        // discard oldest
+        );
+        
+        //Form request to create MonitoringItem
+        MonitoredItemCreateRequest request = new MonitoredItemCreateRequest(readValueId, MonitoringMode.Reporting, parameters);
+        
+        //Set consumer for values received
+        BiConsumer<UaMonitoredItem, Integer> onItemCreated = 
+        		(item, id) -> item.setValueConsumer(this::onSubscriptionValue);
+        		
+        //Create Monitored Items
+        List<UaMonitoredItem> items = subscription.createMonitoredItems(
+        		TimestampsToReturn.Both, 
+        		newArrayList(request), 
+        		onItemCreated
+        ).get();
+        
+        //Check returned status codes for created items
+        for (UaMonitoredItem item : items) {
+            if (item.getStatusCode().isGood()) {
+                logger.info("item created for nodeId={}", item.getReadValueId().getNodeId());
+            } else {
+                logger.warn(
+                    "failed to create item for nodeId={} (status={})",
+                    item.getReadValueId().getNodeId(), item.getStatusCode());
+            }
+        }
+        
+        // let the example run for 30 seconds then terminate
+        System.out.println("Waiting for a change...");
+        Thread.sleep(30000);
+        future.complete(client);
+	}
+	
+	private void onSubscriptionValue(UaMonitoredItem item, DataValue value) {
+        logger.info(
+            "subscription value received: item={}, value={}",
+            item.getReadValueId().getNodeId(), value.getValue());
+    }
+	
+	@Override
+	//Override to set proper endpoint
+	public String getEndpointUrl() {
+		return "opc.tcp://localhost:12686/test";
+	}
+
+}
