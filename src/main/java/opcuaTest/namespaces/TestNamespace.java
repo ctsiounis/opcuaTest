@@ -1,4 +1,4 @@
-package opcuaTest;
+package opcuaTest.namespaces;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -117,12 +117,94 @@ public class TestNamespace implements Namespace {
 
 			addMethodNode(folderNode);
 
-			// addCustomDataTypeVariable(folderNode);
-
+			addCustomDataTypeVariable(folderNode);
+			
 			// addCustomObjectTypeAndInstance(folderNode);
 		} catch (UaException e) {
 			logger.error("Error adding nodes: {}", e.getMessage(), e);
 		}
+	}
+
+	private void addCustomDataTypeVariable(UaFolderNode rootFolder) {
+		//Custom DataTypeNode - subtype of DataTypeNode
+		NodeId dataTypeId = new NodeId(namespaceIndex, "DataType.CustomDataType");
+		
+		UaDataTypeNode dataTypeNode = new UaDataTypeNode(
+				server.getNodeMap(), 
+				dataTypeId, 
+				new QualifiedName(namespaceIndex, "CustomDataType"), 
+				LocalizedText.english("CustomDataType"), 
+				LocalizedText.english("CustomDataType"), 
+				uint(0), 
+				uint(0), 
+				false
+		);
+		
+		//Inverse ref to Structure
+		dataTypeNode.addReference(new Reference(
+				dataTypeId, 
+				Identifiers.HasSubtype, 
+				Identifiers.Structure.expanded(), 
+				NodeClass.DataType, 
+				false
+		));
+		
+		//Forward ref from Structure
+		Optional<UaDataTypeNode> structureDataTypeNode = server.getNodeMap()
+				.getNode(Identifiers.Structure)
+				.map(UaDataTypeNode.class::cast);
+		
+		structureDataTypeNode.ifPresent(node ->
+				node.addReference(new Reference(
+						node.getNodeId(), 
+						Identifiers.HasSubtype, 
+						dataTypeId.expanded(), 
+						NodeClass.DataType, 
+						true
+				))
+		);
+		
+		//Create dictionary, binaryEncodingId and register the codec under that id
+		OpcUaBinaryDataTypeDictionary dictionary = new OpcUaBinaryDataTypeDictionary(
+				"urn:ca:uwo:ktsiouni:test-module:custom-data-type");
+		
+		NodeId binaryEncodingId = new NodeId(namespaceIndex, "DataType.CustomDataType.BinaryEncoding");
+		
+		dictionary.registerStructCodec(
+				new CustomDataType.Codec().asBinaryCodec(), 
+				"CustomDataType", 
+				binaryEncodingId
+		);
+		
+		//Register dictionary with the shared DataTypeManager instance
+		OpcUaDataTypeManager.getInstance().registerTypeDictionary(dictionary);
+		
+		UaVariableNode customDataTypeVariable = UaVariableNode.builder(server.getNodeMap())
+				.setNodeId(new NodeId(namespaceIndex, "TestFolder/CustomDataTypeVariable"))
+				.setAccessLevel(ubyte(AccessLevel.getMask(AccessLevel.READ_WRITE)))
+				.setUserAccessLevel(ubyte(AccessLevel.getMask(AccessLevel.READ_WRITE)))
+				.setBrowseName(new QualifiedName(namespaceIndex, "CustomDataTypeVariable"))
+				.setDisplayName(LocalizedText.english("CustomDataTypeVariable"))
+				.setDataType(dataTypeId)
+				.setTypeDefinition(Identifiers.BaseDataVariableType)
+				.build();
+		
+		//Can create whatever type we want
+		CustomDataType value = new CustomDataType("foo", uint(42), true);
+		
+		ExtensionObject xo = ExtensionObject.encode(value, binaryEncodingId);
+		
+		customDataTypeVariable.setValue(new DataValue(new Variant(xo)));
+		
+		rootFolder.addOrganizes(customDataTypeVariable);
+		
+		customDataTypeVariable.addReference(new Reference(
+				customDataTypeVariable.getNodeId(), 
+				Identifiers.Organizes, 
+				rootFolder.getNodeId().expanded(), 
+				rootFolder.getNodeClass(), 
+				false
+		));
 	}
 
 	private void addMethodNode(UaFolderNode folderNode) {

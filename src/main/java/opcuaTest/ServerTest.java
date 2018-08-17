@@ -10,6 +10,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import com.google.common.collect.ImmutableList;
+
+import opcuaTest.namespaces.AnotherNamespace;
+import opcuaTest.namespaces.TestNamespace;
+
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.milo.opcua.sdk.server.DiagnosticsContext;
 import org.eclipse.milo.opcua.sdk.server.OpcUaServer;
@@ -176,6 +180,10 @@ public class ServerTest {
             TestNamespace.NAMESPACE_URI,
             idx -> new TestNamespace(server, idx));
         
+        server.getNamespaceManager().registerAndAdd(
+        		AnotherNamespace.NAMESPACE_URI, 
+        		idx -> new AnotherNamespace(server, idx));
+        
         
         //Adds ServiceSet to manage attribute history
         server.getServer().addServiceSet(new AttributeHistoryServiceSet() {
@@ -283,6 +291,8 @@ public class ServerTest {
 			}
         	
 		});
+        
+        
         
 	}
 	

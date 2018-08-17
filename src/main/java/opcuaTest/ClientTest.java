@@ -8,13 +8,17 @@ import java.util.concurrent.ExecutionException;
 
 import org.eclipse.milo.examples.client.ClientExample;
 import org.eclipse.milo.examples.client.ClientExampleRunner;
+import org.eclipse.milo.examples.server.types.CustomDataType;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.nodes.Node;
 import org.eclipse.milo.opcua.sdk.client.api.nodes.VariableNode;
 import org.eclipse.milo.opcua.stack.core.Identifiers;
+import org.eclipse.milo.opcua.stack.core.types.OpcUaBinaryDataTypeDictionary;
+import org.eclipse.milo.opcua.stack.core.types.OpcUaDataTypeManager;
 import org.eclipse.milo.opcua.stack.core.types.builtin.ByteString;
 import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
 import org.eclipse.milo.opcua.stack.core.types.builtin.DateTime;
+import org.eclipse.milo.opcua.stack.core.types.builtin.ExtensionObject;
 import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
 import org.eclipse.milo.opcua.stack.core.types.builtin.QualifiedName;
 import org.eclipse.milo.opcua.stack.core.types.builtin.StatusCode;
@@ -65,7 +69,7 @@ public class ClientTest implements ClientExample {
 		addNodes(client);
 		
 		// browse nodes
-		browseNode("", client, new NodeId(2, "TestFolder"));
+		browseNode("", client, Identifiers.ObjectsFolder);
 		
 		//Use square root function
 		Double value = 16.00;
@@ -76,12 +80,48 @@ public class ClientTest implements ClientExample {
 		// System.out.println(node.getBrowseName().get().getName()+":"+node.getNodeClass().get().toString());
 		
 		//Get History from Variable
-		getHistory(client);
+		//getHistory(client);
+		
+		//Get CustomDataTypeVariable's value
+		getNodeValue(client,"TestFolder/CustomDataTypeVariable");
 		
 		// complete client's work
 		future.complete(client);
 	}
 	
+	private void getNodeValue(OpcUaClient client, String identifier) throws Exception{
+		registerCustomCodec();
+		
+		NodeId nodeId = new NodeId(2, identifier);
+		
+		ExtensionObject xo = (ExtensionObject) client.readValue(
+				0.0, 
+				TimestampsToReturn.Both, 
+				nodeId
+			).get().getValue().getValue();
+		
+		CustomDataType value = xo.decode();
+		
+		System.out.println("The value of the CustomDataTypeVariable is: " + value);
+	}
+
+	private void registerCustomCodec() {
+		//Create dictionary, binaryEncodingId and register the codec under that id
+		OpcUaBinaryDataTypeDictionary dictionary = new OpcUaBinaryDataTypeDictionary(
+				"urn:ca:uwo:ktsiouni:test-module:custom-data-type");
+				
+		NodeId binaryEncodingId = new NodeId(2, "DataType.CustomDataType.BinaryEncoding");
+				
+		dictionary.registerStructCodec(
+				new CustomDataType.Codec().asBinaryCodec(), 
+				"CustomDataType", 
+				binaryEncodingId
+		);
+				
+		//Register dictionary with the shared DataTypeManager instance
+		OpcUaDataTypeManager.getInstance().registerTypeDictionary(dictionary);
+	}
+
 	private void getHistory(OpcUaClient client) throws Exception {
 		HistoryReadDetails historyReadDetails = new ReadRawModifiedDetails(
 				false, 
@@ -213,7 +253,7 @@ public class ClientTest implements ClientExample {
 				//if (node.getNodeId().get().getNamespaceIndex().intValue() == 2) {
 					logger.info("{} Node={}", indent, node.getBrowseName().get().getName());
 					//logger.info("{} NodeAttr={}", indent, node.getDescription().get().getText());
-					// System.out.println(node.getNodeId().get().getNamespaceIndex());
+					//System.out.println(node.getNodeId().get().getNamespaceIndex());
 
 					// recursively browse to children
 				//}
