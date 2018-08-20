@@ -1,4 +1,4 @@
-package opcuaTest;
+package opcuaTest.client;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -31,7 +31,7 @@ public class SubscriptionTest implements ClientExample {
 
 	public static void main(String[] args) throws Exception {
 		SubscriptionTest client = new SubscriptionTest();
-		new ClientExampleRunner(client,false).run();
+		new ClientRunner(client).run();
 	}
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());

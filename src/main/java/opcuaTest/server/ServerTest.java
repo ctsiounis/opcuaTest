@@ -1,4 +1,4 @@
-package opcuaTest;
+package opcuaTest.server;
 
 import java.io.File;
 import java.security.Security;

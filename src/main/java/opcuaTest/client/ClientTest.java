@@ -1,4 +1,4 @@
-package opcuaTest;
+package opcuaTest.client;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,7 +49,7 @@ public class ClientTest implements ClientExample {
 
 	public static void main(String[] args) throws Exception {
 		ClientTest client = new ClientTest();
-		new ClientExampleRunner(client, false).run();
+		new ClientRunner(client).run();
 
 	}
 
