@@ -5,29 +5,49 @@
   <version>0.0.1-SNAPSHOT</version>
   <name>OpcUaTest</name>
   
-  
+  <repositories>
+	<repository>
+		<id>bintray</id>
+		<url>http://dl.bintray.com/andsel/maven/</url>
+		<releases>
+			<enabled>true</enabled>
+		</releases>
+		<snapshots>
+			<enabled>false</enabled>
+		</snapshots>
+	</repository>
+	<repository>
+		<id>Eclipse Paho Repo</id>
+		<url>https://repo.eclipse.org/content/repositories/paho-releases/</url>
+	</repository>
+  </repositories>
   <dependencies>
+	<dependency>
+		<groupId>org.eclipse.paho</groupId>
+		<artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+		<version>1.0.2</version>
+	</dependency>
   	<!-- https://mvnrepository.com/artifact/org.eclipse.milo/stack-core -->
 	<dependency>
     	<groupId>org.eclipse.milo</groupId>
     	<artifactId>stack-core</artifactId>
-    	<version>0.2.1</version>
+    	<version>0.2.2</version>
 	</dependency>
   	<dependency>
   		<groupId>org.eclipse.milo</groupId>
     	<artifactId>client-examples</artifactId>
-    	<version>0.2.1</version>
+    	<version>0.2.2</version>
 	</dependency>
 	<dependency>
     	<groupId>org.eclipse.milo</groupId>
     	<artifactId>sdk-client</artifactId>
-    	<version>0.2.1</version>
+    	<version>0.2.2</version>
 	</dependency>
 	<!-- https://mvnrepository.com/artifact/org.eclipse.milo/sdk-server -->
 	<dependency>
     	<groupId>org.eclipse.milo</groupId>
     	<artifactId>sdk-server</artifactId>
-    	<version>0.2.1</version>
+    	<version>0.2.2</version>
 	</dependency>
 	
     <!-- Redeclare our dependency on Bouncy Castle

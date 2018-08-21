@@ -42,6 +42,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
 
+import opcuaTest.types.MyDataType;
+
 import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.uint;
 import static org.eclipse.milo.opcua.stack.core.util.ConversionUtil.l;
 
@@ -49,7 +51,7 @@ public class ClientTest implements ClientExample {
 
 	public static void main(String[] args) throws Exception {
 		ClientTest client = new ClientTest();
-		new ClientRunner(client).run();
+		new ClientRunner(client, 0).run();
 
 	}
 
@@ -103,6 +105,14 @@ public class ClientTest implements ClientExample {
 		CustomDataType value = xo.decode();
 		
 		System.out.println("The value of the CustomDataTypeVariable is: " + value);
+		
+		VariableNode node = client.getAddressSpace().createVariableNode(nodeId);
+		
+		// change and write new value
+		CustomDataType modified = new CustomDataType("US", uint(30), true);
+		ExtensionObject modifiedXo = ExtensionObject.encode(modified, xo.getEncodingTypeId());
+		StatusCode writeStatus = node.writeValue(new DataValue(new Variant(modifiedXo))).get();
+		logger.info("writeStatus={}", writeStatus);
 	}
 
 	private void registerCustomCodec() {
@@ -197,7 +207,7 @@ public class ClientTest implements ClientExample {
 
 		for (int i = 0; i < 5; i++) {
 			nodeIds = ImmutableList.of(new NodeId(2, "TestFolder/TestSubfolder1/TestVariable_1_"+i));
-			Variant v = new Variant(i+5);
+			Variant v = new Variant(i+10);
 
 			// don't write status or timestamps
 			DataValue dv = new DataValue(v, null, null);

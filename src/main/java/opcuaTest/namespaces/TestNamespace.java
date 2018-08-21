@@ -10,6 +10,8 @@ import java.util.concurrent.CompletableFuture;
 
 import com.google.common.collect.Lists;
 
+import mqtt.client.SimpleMqttClient;
+
 import org.eclipse.milo.examples.server.ValueLoggingDelegate;
 import org.eclipse.milo.examples.server.methods.SqrtMethod;
 import org.eclipse.milo.examples.server.types.CustomDataType;
@@ -326,7 +328,10 @@ public class TestNamespace implements Namespace {
 	@Override
 	public void write(WriteContext context, List<WriteValue> writeValues) {
 		List<StatusCode> results = Lists.newArrayListWithCapacity(writeValues.size());
-
+		
+		//Create a simple client to send values to MQTT server
+		SimpleMqttClient client = new SimpleMqttClient();
+		
 		for (WriteValue writeValue : writeValues) {
 			ServerNode node = server.getNodeMap().get(writeValue.getNodeId());
 
@@ -340,6 +345,9 @@ public class TestNamespace implements Namespace {
 					logger.info("Wrote value {} to {} attribute of {}", writeValue.getValue().getValue(),
 							AttributeId.from(writeValue.getAttributeId()).map(Object::toString).orElse("unknown"),
 							node.getNodeId());
+					
+					// Whenever something is written, it is also published in the MQTT server
+					client.publish(node.getNodeId().getIdentifier().toString(), writeValue.getValue().getValue().getValue().toString()); 
 				} catch (UaException e) {
 					logger.error("Unable to write value={}", writeValue.getValue(), e);
 					results.add(e.getStatusCode());
@@ -348,7 +356,7 @@ public class TestNamespace implements Namespace {
 				results.add(new StatusCode(StatusCodes.Bad_NodeIdUnknown));
 			}
 		}
-
+		client.close();
 		context.complete(results);
 	}
 

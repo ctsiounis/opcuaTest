@@ -37,9 +37,12 @@ public class ClientRunner {
     private final CompletableFuture<OpcUaClient> future = new CompletableFuture<>();
 
     private final ClientExample client;
+    
+    private int endpointSelection;
 
-	public ClientRunner(ClientExample client) {
+	public ClientRunner(ClientExample client, int endpointSelection) {
 		this.client = client;
+		this.endpointSelection = endpointSelection;
 	}
     
 	private OpcUaClient createClient() throws Exception {
@@ -72,7 +75,7 @@ public class ClientRunner {
         EndpointDescription endpoint = Arrays.stream(endpoints)
             .filter(e -> e.getSecurityPolicyUri().equals(securityPolicy.getSecurityPolicyUri()))
             //Choosing which endpoint is used
-            .skip(2).findFirst().orElseThrow(() -> new Exception("no desired endpoints returned"));
+            .skip(endpointSelection).findFirst().orElseThrow(() -> new Exception("no desired endpoints returned"));
         
 
         logger.info("Using endpoint: {} [{}]", endpoint.getEndpointUrl(), securityPolicy);

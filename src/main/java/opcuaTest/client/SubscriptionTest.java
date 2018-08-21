@@ -31,7 +31,7 @@ public class SubscriptionTest implements ClientExample {
 
 	public static void main(String[] args) throws Exception {
 		SubscriptionTest client = new SubscriptionTest();
-		new ClientRunner(client).run();
+		new ClientRunner(client, 1).run();
 	}
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -93,7 +93,7 @@ public class SubscriptionTest implements ClientExample {
         
         // let the example run for 30 seconds then terminate
         System.out.println("Waiting for a change...");
-        Thread.sleep(30000);
+        Thread.sleep(150000);
         future.complete(client);
 	}
 	
