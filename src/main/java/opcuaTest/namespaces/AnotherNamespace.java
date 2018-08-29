@@ -3,6 +3,7 @@ package opcuaTest.namespaces;
 import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.ubyte;
 import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.uint;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -43,6 +44,8 @@ import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
 import org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.UShort;
 import org.eclipse.milo.opcua.stack.core.types.enumerated.NodeClass;
 import org.eclipse.milo.opcua.stack.core.types.enumerated.TimestampsToReturn;
+import org.eclipse.milo.opcua.stack.core.types.structured.AddNodesItem;
+import org.eclipse.milo.opcua.stack.core.types.structured.AddNodesResult;
 import org.eclipse.milo.opcua.stack.core.types.structured.ReadValueId;
 import org.eclipse.milo.opcua.stack.core.types.structured.WriteValue;
 import org.eclipse.milo.opcua.stack.core.util.FutureUtils;
@@ -284,6 +287,50 @@ public class AnotherNamespace implements Namespace{
 			}
 		});
 	}
+
+	@Override
+	public void addNode(AddNodesContext context, List<AddNodesItem> nodesToAdd) {
+		List<AddNodesResult> results = new ArrayList<AddNodesResult>();
+
+		for (AddNodesItem nodeToAdd : nodesToAdd) {
+			NodeId nodeId = new NodeId(
+					nodeToAdd.getRequestedNewNodeId().getNamespaceIndex(),
+					(String) nodeToAdd.getRequestedNewNodeId().getIdentifier()
+			);
+			System.out.println("Trying to add node:"+ nodeId.getIdentifier());
+			try {
+				
+				UaFolderNode node = new UaFolderNode(
+						server.getNodeMap(), 
+						nodeId, 
+						nodeToAdd.getBrowseName(),
+						LocalizedText.english(nodeToAdd.getBrowseName().getName())
+				);
+				server.getNodeMap().addNode(node);
+
+				NodeId parentNodeId = new NodeId(
+						nodeToAdd.getParentNodeId().getNamespaceIndex(),
+						(String) nodeToAdd.getParentNodeId().getIdentifier()
+				);
+
+				server.getUaNamespace().addReference(
+						parentNodeId, 
+						Identifiers.Organizes, 
+						true, 
+						nodeId.expanded(),
+						NodeClass.Object
+				);
+
+				results.add(new AddNodesResult(new StatusCode(StatusCodes.Good_EntryInserted), nodeId));
+			} catch (UaException e) {
+				logger.error("Error adding nodes: {}", e.getMessage(), e);
+				results.add(new AddNodesResult(new StatusCode(StatusCodes.Bad_UnexpectedError), nodeId));
+			}
+		}
+		context.complete(results);
+	}
+	
+	
 
 	
 }

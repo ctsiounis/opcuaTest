@@ -1,13 +1,10 @@
 package opcuaTest.client;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import org.eclipse.milo.examples.client.ClientExample;
-import org.eclipse.milo.examples.client.ClientExampleRunner;
 import org.eclipse.milo.examples.server.types.CustomDataType;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.nodes.Node;
@@ -26,7 +23,6 @@ import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
 import org.eclipse.milo.opcua.stack.core.types.enumerated.NodeClass;
 import org.eclipse.milo.opcua.stack.core.types.enumerated.TimestampsToReturn;
 import org.eclipse.milo.opcua.stack.core.types.structured.AddNodesItem;
-import org.eclipse.milo.opcua.stack.core.types.structured.BrowseDescription;
 import org.eclipse.milo.opcua.stack.core.types.structured.CallMethodRequest;
 import org.eclipse.milo.opcua.stack.core.types.structured.CallMethodResult;
 import org.eclipse.milo.opcua.stack.core.types.structured.HistoryData;
@@ -35,47 +31,81 @@ import org.eclipse.milo.opcua.stack.core.types.structured.HistoryReadResponse;
 import org.eclipse.milo.opcua.stack.core.types.structured.HistoryReadResult;
 import org.eclipse.milo.opcua.stack.core.types.structured.HistoryReadValueId;
 import org.eclipse.milo.opcua.stack.core.types.structured.ReadRawModifiedDetails;
-import org.eclipse.milo.opcua.stack.core.types.structured.ReadValueId;
-import org.eclipse.milo.opcua.stack.core.types.structured.ViewNode;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
 
-import opcuaTest.types.MyDataType;
-
 import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.uint;
 import static org.eclipse.milo.opcua.stack.core.util.ConversionUtil.l;
 
-public class ClientTest implements ClientExample {
+public class ClientTest implements Client {
+	
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private OpcUaClient opcUaClient = null;
+	private ClientRunner runner;
 
 	public static void main(String[] args) throws Exception {
-		ClientTest client = new ClientTest();
-		new ClientRunner(client, 0).run();
-
+		ClientTest clientTest = new ClientTest();
+		clientTest.createNewOpcUaClient(clientTest, 0);
+		clientTest.run();
 	}
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	public void setOpcUaClient(OpcUaClient opcUaClient) {
+		this.opcUaClient = opcUaClient;
+	}
 
-	public void run(OpcUaClient client, CompletableFuture<OpcUaClient> future) throws Exception {
+
+
+	public void createNewOpcUaClient(Client client, int endpointSelection) {
+		runner = new ClientRunner(
+				client.getSecurityPolicy(), 
+				client.getEndpointUrl(), 
+				client.getIdentityProvider(), 
+				endpointSelection
+		);
+		try {
+			opcUaClient = runner.createOpcUaClient();
+		} catch (Throwable t) {
+            logger.error("Error getting client: {}", t.getMessage(), t);
+
+            try {
+                Thread.sleep(1000);
+                System.exit(0);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+		
+	}
+
+
+
+	public void run() throws Exception {
+		// Check if opcUaClient and future have been initialized
+		if (opcUaClient == null) {
+			createNewOpcUaClient(this, 0);
+		}
+		
 		// synchronous connect
-		client.connect().get();
+		opcUaClient.connect().get();
 
 		//Write values in already existing folder
-		writeValues(client);
+		writeValues();
 		
 		//Read values in already existing folder
-		readValues(client);
+		readValues();
 		
 		//Add nodes
-		addNodes(client);
+		addNodes();
 		
 		// browse nodes
-		browseNode("", client, Identifiers.ObjectsFolder);
+		browseNode("", Identifiers.ObjectsFolder);
 		
 		//Use square root function
 		Double value = 16.00;
-		sqrt(client, value);
+		sqrt(value);
 
 		// VariableNode node = client.getAddressSpace().createVariableNode(new NodeId(2,
 		// "TestFolder"));
@@ -85,18 +115,18 @@ public class ClientTest implements ClientExample {
 		//getHistory(client);
 		
 		//Get CustomDataTypeVariable's value
-		getNodeValue(client,"TestFolder/CustomDataTypeVariable");
+		getNodeValue("TestFolder/CustomDataTypeVariable");
 		
 		// complete client's work
-		future.complete(client);
+		//ClientRunner.closeOpcUaClient(opcUaClient);
 	}
 	
-	private void getNodeValue(OpcUaClient client, String identifier) throws Exception{
+	private void getNodeValue(String identifier) throws Exception{
 		registerCustomCodec();
 		
 		NodeId nodeId = new NodeId(2, identifier);
 		
-		ExtensionObject xo = (ExtensionObject) client.readValue(
+		ExtensionObject xo = (ExtensionObject) opcUaClient.readValue(
 				0.0, 
 				TimestampsToReturn.Both, 
 				nodeId
@@ -106,7 +136,7 @@ public class ClientTest implements ClientExample {
 		
 		System.out.println("The value of the CustomDataTypeVariable is: " + value);
 		
-		VariableNode node = client.getAddressSpace().createVariableNode(nodeId);
+		VariableNode node = opcUaClient.getAddressSpace().createVariableNode(nodeId);
 		
 		// change and write new value
 		CustomDataType modified = new CustomDataType("US", uint(30), true);
@@ -132,7 +162,7 @@ public class ClientTest implements ClientExample {
 		OpcUaDataTypeManager.getInstance().registerTypeDictionary(dictionary);
 	}
 
-	private void getHistory(OpcUaClient client) throws Exception {
+	private void getHistory() throws Exception {
 		HistoryReadDetails historyReadDetails = new ReadRawModifiedDetails(
 				false, 
 				DateTime.MIN_VALUE, 
@@ -151,7 +181,7 @@ public class ClientTest implements ClientExample {
 		List<HistoryReadValueId> nodesToRead = new ArrayList<HistoryReadValueId>();
 		nodesToRead.add(historyReadValueId);
 		
-		HistoryReadResponse historyReadResponse = client.historyRead(
+		HistoryReadResponse historyReadResponse = opcUaClient.historyRead(
 				historyReadDetails, 
 				TimestampsToReturn.Both, 
 				false, 
@@ -173,13 +203,13 @@ public class ClientTest implements ClientExample {
 		}
 	}
 
-	private void sqrt(OpcUaClient client, Double value) throws Exception{
+	private void sqrt(Double value) throws Exception{
 		NodeId objectId = NodeId.parse("ns=2;s=TestFolder");
 		NodeId methodId = NodeId.parse("ns=2;s=TestFolder/sqrt(x)");
 		
 		CallMethodRequest request = new CallMethodRequest(objectId, methodId, new Variant[] {new Variant(value)});
 		
-		CallMethodResult result = client.call(request).get();
+		CallMethodResult result = opcUaClient.call(request).get();
 		if (result.getStatusCode().isGood()) {
 			Double resultValue = (Double) result.getOutputArguments()[0].getValue();
 			System.out.println("Sqrt("+value+"): "+resultValue);
@@ -188,32 +218,32 @@ public class ClientTest implements ClientExample {
 		}
 	}
 
-	private void readValues(OpcUaClient client) throws Exception{
+	private void readValues() throws Exception{
 		List<NodeId> nodeIds = new ArrayList<NodeId>();
 		
 		for (int i = 0; i < 5; i++) {
 			nodeIds.add(new NodeId(2, "TestFolder/TestSubfolder1/TestVariable_1_"+i));
 		}
 		
-		List<DataValue> values = client.readValues(0.0, TimestampsToReturn.Both, nodeIds).get();
+		List<DataValue> values = opcUaClient.readValues(0.0, TimestampsToReturn.Both, nodeIds).get();
 		
 		values.forEach(a -> {
 			System.out.println("Got value: "+ a.getValue().getValue());
 		});
 	}
 
-	private void writeValues(OpcUaClient client) throws Exception {
+	private void writeValues() throws Exception {
 		List<NodeId> nodeIds;
 
 		for (int i = 0; i < 5; i++) {
 			nodeIds = ImmutableList.of(new NodeId(2, "TestFolder/TestSubfolder1/TestVariable_1_"+i));
-			Variant v = new Variant(i+10);
+			Variant v = new Variant(i);
 
 			// don't write status or timestamps
 			DataValue dv = new DataValue(v, null, null);
 
 			// write asynchronously....
-			CompletableFuture<List<StatusCode>> f = client.writeValues(nodeIds, ImmutableList.of(dv));
+			CompletableFuture<List<StatusCode>> f = opcUaClient.writeValues(nodeIds, ImmutableList.of(dv));
 
 			// ...but block for the results so we write in order
 			List<StatusCode> statusCodes = f.get();
@@ -225,49 +255,49 @@ public class ClientTest implements ClientExample {
 		}
 	}
 	
-	private void addNodes(OpcUaClient client) {
+	private void addNodes() {
 		List<AddNodesItem> nodesToAdd = new ArrayList<AddNodesItem>();
 		
 		//Add a folder node
-		NodeId nodeId = new NodeId(2, "TestSubfolder2");
+		NodeId nodeId = new NodeId(3, "TestSubfolder2");
 		AddNodesItem nodeToAdd = new AddNodesItem(
 				new NodeId(2, "TestFolder").expanded(), 
 				Identifiers.Organizes, 
 				nodeId.expanded(), 
-				new QualifiedName(2, "TestSubfolder2"), 
+				new QualifiedName(3, "TestSubfolder2"), 
 				NodeClass.ObjectType, 
 				null, 
 				Identifiers.BaseObjectType.expanded());
 		nodesToAdd.add(nodeToAdd);
 		
 		//Add a variable to it
-		NodeId nodeId2 = new NodeId(2, "TestVariable_2_0");
+		NodeId nodeId2 = new NodeId(3, "TestVariable_2_0");
 		AddNodesItem nodeToAdd2 = new AddNodesItem(
-				new NodeId(2, "TestSubfolder2").expanded(), 
+				new NodeId(3, "TestSubfolder2").expanded(), 
 				Identifiers.Organizes, 
 				nodeId2.expanded(), 
-				new QualifiedName(2, "TestVariable_2_0"), 
+				new QualifiedName(3, "TestVariable_2_0"), 
 				NodeClass.VariableType, 
 				null, 
 				Identifiers.BaseDataVariableType.expanded());
 		nodesToAdd.add(nodeToAdd2);
 		
-		client.addNodes(nodesToAdd);
+		opcUaClient.addNodes(nodesToAdd);
 	}
 
-	private void browseNode(String indent, OpcUaClient client, NodeId browseRoot) {
+	private void browseNode(String indent, NodeId browseRoot) {
 		try {
-			List<Node> nodes = client.getAddressSpace().browse(browseRoot).get();
+			List<Node> nodes = opcUaClient.getAddressSpace().browse(browseRoot).get();
 
 			for (Node node : nodes) {
 				//if (node.getNodeId().get().getNamespaceIndex().intValue() == 2) {
-					logger.info("{} Node={}", indent, node.getBrowseName().get().getName());
+					logger.info("{} Node={}, ns={}", indent, node.getBrowseName().get().getName(), node.getNodeId().get().getNamespaceIndex());
 					//logger.info("{} NodeAttr={}", indent, node.getDescription().get().getText());
 					//System.out.println(node.getNodeId().get().getNamespaceIndex());
 
 					// recursively browse to children
 				//}
-				browseNode(indent + "  ", client, node.getNodeId().get());
+				browseNode(indent + "  ", node.getNodeId().get());
 			}
 		} catch (InterruptedException | ExecutionException e) {
 			logger.error("Browsing nodeId={} failed: {}", browseRoot, e.getMessage(), e);

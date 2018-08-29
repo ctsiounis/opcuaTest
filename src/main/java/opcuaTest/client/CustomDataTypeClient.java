@@ -1,9 +1,5 @@
 package opcuaTest.client;
 
-import java.util.concurrent.CompletableFuture;
-
-import org.eclipse.milo.examples.client.ClientExample;
-import org.eclipse.milo.examples.server.types.CustomDataType;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.nodes.VariableNode;
 import org.eclipse.milo.opcua.stack.core.types.OpcUaBinaryDataTypeDictionary;
@@ -13,33 +9,43 @@ import org.eclipse.milo.opcua.stack.core.types.builtin.ExtensionObject;
 import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
 import org.eclipse.milo.opcua.stack.core.types.builtin.StatusCode;
 import org.eclipse.milo.opcua.stack.core.types.builtin.Variant;
-import org.eclipse.milo.opcua.stack.core.types.enumerated.TimestampsToReturn;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import opcuaTest.types.MyDataType;
 import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.uint;
 
-public class CustomDataTypeClient implements ClientExample {
-
-	
-
-	public static void main(String[] args) {
-		CustomDataTypeClient client = new CustomDataTypeClient();
-		new ClientRunner(client, 2).run();
-	}
+public class CustomDataTypeClient implements Client {
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private OpcUaClient opcUaClient;
+	ClientRunner runner;
 
-	public void run(OpcUaClient client, CompletableFuture<OpcUaClient> future) throws Exception {
+	public static void main(String[] args) throws Exception {
+		CustomDataTypeClient customClient = new CustomDataTypeClient();
+		customClient.createNewOpcUaClient(customClient, 0);
+		customClient.run();
+		
+	}
+	
+	public void setOpcUaClient(OpcUaClient opcUaClient) {
+		this.opcUaClient = opcUaClient;
+	}
+
+	public void run() throws Exception {
 		// register the codec for my custom class
 		registerCustomCodec();
 		
+		// Check if opcUaClient and future have been initialized
+		if (opcUaClient == null) {
+			createNewOpcUaClient(this, 0);
+		}
+				
 		// synchronous connect
-		client.connect().get();
+		opcUaClient.connect().get();
 			
 		// Create variable node to perform actions
-		VariableNode node = client.getAddressSpace().createVariableNode(new NodeId(3, "AnotherFolder/MyDataTypeVariable"));
+		VariableNode node = opcUaClient.getAddressSpace().createVariableNode(new NodeId(3, "AnotherFolder/MyDataTypeVariable"));
 		logger.info("DataType={}", node.getDataType().get());
 
         // Read the current value
@@ -74,7 +80,7 @@ public class CustomDataTypeClient implements ClientExample {
         logger.info("Decoded={}", decoded);
 		
 		// complete client's work
-		future.complete(client);
+        //ClientRunner.closeOpcUaClient(opcUaClient);
 	}
 	
 	private void registerCustomCodec() {
@@ -98,6 +104,28 @@ public class CustomDataTypeClient implements ClientExample {
 	//Override to set proper endpoint
 	public String getEndpointUrl() {
 		return "opc.tcp://localhost:12686/test";
+	}
+
+	@Override
+	public void createNewOpcUaClient(Client client, int endpointSelection) {
+		runner = new ClientRunner(
+				client.getSecurityPolicy(), 
+				client.getEndpointUrl(), 
+				client.getIdentityProvider(), 
+				endpointSelection
+		);
+		try {
+			opcUaClient = runner.createOpcUaClient();
+		} catch (Throwable t) {
+            logger.error("Error getting client: {}", t.getMessage(), t);
+
+            try {
+                Thread.sleep(1000);
+                System.exit(0);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
 	}
 
 }

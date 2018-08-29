@@ -284,9 +284,17 @@ public class ServerTest {
 					throws UaException {
 				List<AddNodesItem> nodesToAdd = Arrays.asList(serviceRequest.getRequest().getNodesToAdd());
 				AddNodesContext context = new AddNodesContext(server, null, null);
-				UShort id = server.getNamespaceManager().getNamespaceTable().getIndex(TestNamespace.NAMESPACE_URI);
 				
-				server.getNamespaceManager().getNamespace(id).addNode(context, nodesToAdd);
+				// Group by Namespace
+				Map<UShort, List<AddNodesItem>> byNamespace = nodesToAdd.stream()
+			            .collect(groupingBy(node -> node.getRequestedNewNodeId().getNamespaceIndex()));
+				
+				byNamespace.keySet().forEach(index -> 
+					server.getNamespaceManager().getNamespace(index).addNode(context, byNamespace.get(index))
+				);
+				//UShort id = server.getNamespaceManager().getNamespaceTable().getIndex(TestNamespace.NAMESPACE_URI);
+				
+				//server.getNamespaceManager().getNamespace(id).addNode(context, nodesToAdd);
 				
 			}
         	
