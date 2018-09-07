@@ -107,9 +107,9 @@ public class SubscriptionTest implements Client {
 			}
 		}
 
-		// let the example run for 150 seconds then terminate
+		// let the example run for 15 seconds then terminate
 		System.out.println("Waiting for a change...");
-		Thread.sleep(150000);
+		Thread.sleep(15000);
 		
 		//ClientRunner.closeOpcUaClient(opcUaClient);
 	}

@@ -237,7 +237,7 @@ public class ClientTest implements Client {
 
 		for (int i = 0; i < 5; i++) {
 			nodeIds = ImmutableList.of(new NodeId(2, "TestFolder/TestSubfolder1/TestVariable_1_"+i));
-			Variant v = new Variant(i);
+			Variant v = new Variant(10+i);
 
 			// don't write status or timestamps
 			DataValue dv = new DataValue(v, null, null);

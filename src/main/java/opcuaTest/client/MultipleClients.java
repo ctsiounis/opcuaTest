@@ -15,6 +15,7 @@ public class MultipleClients {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	OpcUaClient[] opcUaClients = new OpcUaClient[3];
 	List<Client> clients = new ArrayList<Client>();
+	List<CompletableFuture<Void>> futures = new ArrayList<CompletableFuture<Void>>();
 
 	public static void main(String[] args) throws Exception {
 		MultipleClients multiple = new MultipleClients();
@@ -40,22 +41,22 @@ public class MultipleClients {
 		}
 		
 		// Create 10 clients
+		opcUaClient = opcUaClients[0];
 		for (int i = 0; i < 4; i++) {
-			opcUaClient = opcUaClients[0];
 			clientTest = new ClientTest();
 			clientTest.setOpcUaClient(opcUaClient);
 			clients.add(clientTest);
 		}
 		
+		opcUaClient = opcUaClients[1];
 		for (int i = 0; i < 3; i++) {
-			opcUaClient = opcUaClients[1];
 			subTest = new SubscriptionTest();
 			subTest.setOpcUaClient(opcUaClient);
 			clients.add(subTest);
 		}
 		
+		opcUaClient = opcUaClients[2];
 		for (int i = 0; i < 3; i++) {
-			opcUaClient = opcUaClients[2];
 			custom = new CustomDataTypeClient();
 			custom.setOpcUaClient(opcUaClient);
 			clients.add(custom);
@@ -63,8 +64,23 @@ public class MultipleClients {
 		
 		// Run all clients
 		for (Client client : clients) {
-			client.run();
+			CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+				try {
+					client.run();
+				} catch (Exception e) {
+					logger.error("Error when running client: {}", e.getMessage());
+				}
+			});
+			futures.add(future);
 		}
+		
+		CompletableFuture<Void> allClients = CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
+		
+		while (!allClients.isDone()) {
+			Thread.sleep(1000);
+		}
+		
+		logger.info("All clients finished!!!");
 		
 		// Close all OpcUaClients
 		for (OpcUaClient client : opcUaClients ) {

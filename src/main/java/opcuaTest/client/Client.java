@@ -1,7 +1,5 @@
 package opcuaTest.client;
 
-import java.util.concurrent.CompletableFuture;
-
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.identity.AnonymousProvider;
 import org.eclipse.milo.opcua.sdk.client.api.identity.IdentityProvider;
